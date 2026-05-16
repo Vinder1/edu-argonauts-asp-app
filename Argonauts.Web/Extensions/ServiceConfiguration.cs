@@ -55,7 +55,6 @@ public static class ServiceConfiguration
         builder.Services.AddTransient<IResend, ResendClient>();
 
         builder.Services.AddScoped<IServerEventService, ServerEventService>();
-        builder.Services.AddScoped<IScopeFactory, DIScopeFactory>();
 
         builder.Services.AddSingleton<CorrelationIdMiddleware>();
 

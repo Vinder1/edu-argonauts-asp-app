@@ -28,11 +28,11 @@ public class BattleProcessService(
     ISpaceshipConditionService spaceshipConditionService,
     ISpaceshipStateRepository spaceshipStateService,
     IServerEventService serverEventService,
-    IScopeFactory serviceScopeFactory,
     IExplorationService explorationService,
     DataContainer dataContainer,
     IBackgroundScheduler backgroundScheduler,
-    IQuestService questService
+    IQuestService questService,
+    IDestroySpaceshipService destroyService
 ) : IBattleProcessService
 {
     private readonly IBattleEntityService _battleService = battleService
@@ -47,8 +47,6 @@ public class BattleProcessService(
         ?? throw new ArgumentNullException(nameof(spaceshipStateService));
     private readonly IServerEventService _serverEventService = serverEventService
         ?? throw new ArgumentNullException(nameof(serverEventService));
-    private readonly IScopeFactory _serviceScopeFactory = serviceScopeFactory
-        ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
     private readonly IExplorationService _explorationService = explorationService
         ?? throw new ArgumentNullException(nameof(explorationService));
     private readonly DataContainer _dataContainer = dataContainer
@@ -57,6 +55,8 @@ public class BattleProcessService(
         ?? throw new ArgumentNullException(nameof(backgroundScheduler));
     private readonly IQuestService _questService = questService
         ?? throw new ArgumentNullException(nameof(questService));
+    private readonly IDestroySpaceshipService _destroyService = destroyService
+        ?? throw new ArgumentNullException(nameof(destroyService));
 
 
     /// <inheritdoc/>
@@ -205,10 +205,6 @@ public class BattleProcessService(
     /// <returns></returns>
     public async Task ProcessBattleRound(Guid battleId)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var battleService = scope.Resolve<IBattleEntityService>();
-        var serverEventService = scope.Resolve<IServerEventService>();
-
         var battleMembers = await battleService.GetBattleStatusAsync(battleId);
         if (battleMembers.Count == 0)
             return;
@@ -222,16 +218,14 @@ public class BattleProcessService(
         {
             foreach (var playerId in players)
             {
-                await serverEventService.SendUserBattleRoundEndAsync(playerId);
+                await _serverEventService.SendUserBattleRoundEndAsync(playerId);
             }
             _backgroundScheduler.ScheduleAsync<BattleProcessService>(
                 s => s.ProcessBattleRound(battleId), TimeSpan.FromSeconds(10));
         }
         else
         {
-            var destroyService = scope.Resolve<IDestroySpaceshipService>();
-            var conditionService = scope.Resolve<ISpaceshipConditionService>();
-            var battleType = await battleService.GetBattleTypeAsync(battleId);
+            var battleType = await _battleService.GetBattleTypeAsync(battleId);
             foreach (var playerId in players)
             {
                 var member = battleStatus.Members.FirstOrDefault(m => m.Id == playerId);
@@ -240,17 +234,17 @@ public class BattleProcessService(
 
                 if (member.Health <= 0)
                 {
-                    await destroyService.Destroy(playerId);
-                    await serverEventService.SendUserDeathAsync(playerId);
+                    await _destroyService.Destroy(playerId);
+                    await _serverEventService.SendUserDeathAsync(playerId);
                 }
                 else
                 {
-                    await SaveDamage(playerId, conditionService, member);
+                    await SaveDamage(playerId, spaceshipConditionService, member);
                     await ProcessBattleEnd(playerId, battleType, battleStatus);
                 }
 
-                await serverEventService.SendUserBattleEndAsync(playerId);
-                await battleService.EndBattleAsync(playerId);
+                await _serverEventService.SendUserBattleEndAsync(playerId);
+                await _battleService.EndBattleAsync(playerId);
             }
         }
     }
@@ -269,21 +263,19 @@ public class BattleProcessService(
     {
         if (battleType == BattleType.Exploration)
         {
-            var scope = _serviceScopeFactory.CreateScope();
-            var explorationService = scope.Resolve<IExplorationService>();
-            var status = await explorationService.GetExplorationResultAsync(playerId);
+            var status = await _explorationService.GetExplorationResultAsync(playerId);
             if (status == null)
                 return;
 
             var enemyLevel = status.Enemy?.Level;
-            await explorationService.KillEnemiesAsync(playerId);
+            await _explorationService.KillEnemiesAsync(playerId);
 
             if (enemyLevel.HasValue)
             {
                 await _questService.RegisterKillAsync(playerId, enemyLevel.Value);
             }
 
-            status = await explorationService.GetExplorationResultAsync(playerId);
+            status = await _explorationService.GetExplorationResultAsync(playerId);
             await _serverEventService.SendUserExploreResultAsync(playerId, status!);
         }
     }

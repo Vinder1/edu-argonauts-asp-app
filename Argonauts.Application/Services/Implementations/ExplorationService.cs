@@ -18,13 +18,13 @@ public class ExplorationService(
     ISpaceshipRepository spaceshipRepository,
     ISpaceshipStateRepository stateService,
     ILogger<ExplorationService> logger,
-    IScopeFactory serviceScopeFactory,
     IStarVisitService starVisitService,
     IGalaxyService galaxyService,
     IExplorationStatusRepository explorationStatusRepository,
     IBalanceService balanceService,
     DataContainer dataContainer,
-    IBackgroundScheduler backgroundScheduler
+    IBackgroundScheduler backgroundScheduler,
+    IServerEventService serverEventService
 ) : IExplorationService
 {
     private readonly ISpaceshipRepository _spaceshipRepository = spaceshipRepository
@@ -33,8 +33,6 @@ public class ExplorationService(
         ?? throw new ArgumentNullException(nameof(stateService));
     private readonly ILogger<ExplorationService> _logger = logger
         ?? throw new ArgumentNullException(nameof(logger));
-    private readonly IScopeFactory _serviceScopeFactory = serviceScopeFactory
-        ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
     private readonly IStarVisitService _starVisitService = starVisitService
         ?? throw new ArgumentNullException(nameof(starVisitService));
     private readonly IGalaxyService _galaxyService = galaxyService
@@ -45,6 +43,8 @@ public class ExplorationService(
         ?? throw new ArgumentNullException(nameof(balanceService));
     private readonly IBackgroundScheduler _backgroundScheduler = backgroundScheduler
         ?? throw new ArgumentNullException(nameof(backgroundScheduler));
+    private readonly IServerEventService _serverEventService = serverEventService
+        ?? throw new ArgumentNullException(nameof(serverEventService));
     /// <summary>
     /// 
     /// </summary>
@@ -116,17 +116,13 @@ public class ExplorationService(
     ///
     public async Task SendInfoAboutExplorationStart(DateTime arrivalTime, Guid playerId)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var _serverEventService = scope.Resolve<IServerEventService>();
         await _serverEventService.SendUserStartExploreAsync(playerId, arrivalTime);
     }
 
     ///
     public async Task SendInfoAboutExplorationResult(Guid playerId)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var spaceshipService = scope.Resolve<ISpaceshipService>();
-        var sp = await spaceshipService.GetSpaceshipAsync(playerId);
+        var sp = await _spaceshipRepository.GetAsync(playerId);
         if (sp == null) return;
         var star = new Star { AngleMilliradians = sp.LocatedAngleMilliradians, Radius = sp.LocatedRadius };
 
@@ -136,7 +132,6 @@ public class ExplorationService(
             playerId, result);
 
         await _explorationStatusRepository.CreateAsync(playerId, result, TimeSpan.FromDays(1));
-        var _serverEventService = scope.Resolve<IServerEventService>();
         await _serverEventService.SendUserExploreResultAsync(playerId, result);
     }
 
@@ -174,8 +169,6 @@ public class ExplorationService(
         var newBalance = await _balanceService.GetForUserAsync(playerId);
 
         var starVisitCreateResult = await _starVisitService.Create(playerId);
-        using var scope = _serviceScopeFactory.CreateScope();
-        var _serverEventService = scope.Resolve<IServerEventService>();
         await _serverEventService.SendUserExploreEndAsync(playerId, starVisitCreateResult.Success, newBalance!, DateTime.Now);
 
         await _explorationStatusRepository.RemoveForPlayerAsync(playerId);

@@ -137,10 +137,13 @@ public partial class AppToDbMapper
 
     //=======================================[Quest]============================================
     ///
+    [MapperIgnoreTarget(nameof(Quest.IsCompleted))]
     [MapperIgnoreSource(nameof(Entity.Quest.Spaceship))]
+    [MapperIgnoreSource(nameof(Entity.Quest.OwnerId))]
     public partial Quest ToDomainQuest(Entity.Quest src);
     ///
     [MapperIgnoreTarget(nameof(Entity.Quest.Spaceship))]
+    [MapperIgnoreSource(nameof(Quest.IsCompleted))]
     public partial Entity.Quest ToDbQuest(Quest src, Guid ownerId);
 
     //=======================================[Resources]=======================================

@@ -1,4 +1,3 @@
-using Argonauts.Application.Dto;
 using Argonauts.Application.Services.Abstractions;
 using Argonauts.Core.Entity.Quest;
 using Argonauts.Core.Repository;

@@ -16,7 +16,6 @@ namespace Argonauts.Application.Services.Implementations;
 public class MoveSpaceshipService(
     ISpaceshipRepository spaceshipRepository,
     IGalaxyService galaxyService,
-    IScopeFactory serviceScopeFactory,
     ISpaceshipStateRepository stateService,
     ILogger<MoveSpaceshipService> logger,
     IExplorationService explorationService,
@@ -32,8 +31,6 @@ public class MoveSpaceshipService(
         ?? throw new ArgumentNullException(nameof(spaceshipRepository));
     private readonly IGalaxyService _galaxyService = galaxyService
         ?? throw new ArgumentNullException(nameof(galaxyService));
-    private readonly IScopeFactory _serviceScopeFactory = serviceScopeFactory
-        ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
     private readonly ISpaceshipStateRepository _stateService = stateService
         ?? throw new ArgumentNullException(nameof(stateService));
     private readonly ILogger<MoveSpaceshipService> _logger = logger
@@ -164,8 +161,6 @@ public class MoveSpaceshipService(
     ///
     public async Task SendInfoAboutSpaceshipStarMove(DateTime arrivalTime, Spaceship oldSpaceship, Star destination)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var _serverEventService = scope.Resolve<IServerEventService>();
         await _serverEventService.SendUserStartMoveAsync(oldSpaceship.OwnerId, arrivalTime, destination);
         await _serverEventService.SendLocIncomeShipAsync(oldSpaceship.LocatedRadius, oldSpaceship.LocatedAngleMilliradians);
     }
@@ -173,8 +168,6 @@ public class MoveSpaceshipService(
     ///
     public async Task SendInfoAboutSpaceshipCome(Spaceship spaceship)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var _serverEventService = scope.Resolve<IServerEventService>();
         await _serverEventService.SendUserConfirmMoveAsync(spaceship.OwnerId, spaceship.LocatedRadius, spaceship.LocatedAngleMilliradians);
         await _serverEventService.SendLocIncomeShipAsync(spaceship.LocatedRadius, spaceship.LocatedAngleMilliradians);
         await _movementStatusRepository.RemoveForPlayerAsync(spaceship.OwnerId);
