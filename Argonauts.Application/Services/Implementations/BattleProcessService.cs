@@ -278,5 +278,9 @@ public class BattleProcessService(
             status = await _explorationService.GetExplorationResultAsync(playerId);
             await _serverEventService.SendUserExploreResultAsync(playerId, status!);
         }
+        else if (battleType == BattleType.PvP)
+        {
+            // TODO steal money from slain players
+        }
     }
 }
