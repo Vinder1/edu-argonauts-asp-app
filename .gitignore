@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/data/
+**/TestResults/
+**/.vscode
+**/appsettings.Development.json
+**/publish
+
+*.lscache
+
+**/logs/
+**/.env
